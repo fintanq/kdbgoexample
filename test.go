@@ -7,7 +7,7 @@ import (
 
 func main(){
 /*
-	setup q process on port 1234: bash$ q -p 1 2 3 4
+	setup q process on port 1234: bash$ q -p 1234
 	create simple table:
 	n:1000000;t:([]time:asc n?.z.n;sym:n?`ibm`msft`kx;price:n?1000.;size:n?10000)
 */
