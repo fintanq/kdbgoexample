@@ -2,14 +2,14 @@ package main
 
 import (
 	"fmt"
-	"kdbgo"
+	"github.com/sv/kdbgo"
 )
 
 func main(){
 /*
 	setup q process on port 1234: bash$ q -p 1234
 	create simple table:
-	n:1000000;t:([]time:asc n?.z.n;sym:n?`ibm`msft`kx;price:n?1000.;size:n?10000)
+	n:1000000;t:([]sym:n?`ibm`msft`kx;price:n?1000.;size:n?10000)
 */
 
 	con, err := kdb.DialKDB("localhost", 1234, "")
@@ -33,16 +33,16 @@ func main(){
         	fmt.Println("Query failed:", err)
 		return
 	}
-	printTbl(tbl.Data.(kdb.Table))
+	PrintTbl(tbl.Data.(kdb.Table))
 	fmt.Print("\n")
 
 	// keyed table
-	ktbl, err := con.Call("select vwap:size wavg price, lprice:last price by time.hh,sym from t")
+	ktbl, err := con.Call("select vwap:size wavg price, lprice:last price by sym from t")
 	if err != nil {
 		fmt.Println("Query failed:", err)
 		return
 	}
-	printKeyTbl(ktbl.Data.(kdb.Dict))
+	PrintKeyTbl(ktbl.Data.(kdb.Dict))
 	fmt.Print("\n")
 
 	// dictionary
@@ -51,10 +51,52 @@ func main(){
 		fmt.Println("Query failed:", err)
 		return
 	}
-	printDict(dict.Data.(kdb.Dict))
+	PrintDict(dict.Data.(kdb.Dict))
+
+	// async call
+	err = con.AsyncCall("a:1 2 3")
+        if err != nil {
+		fmt.Println("Async call failed", err)
+        }
+
+	// sync list
+	res, err := con.Call("{x+y}", &kdb.K{-kdb.KJ, kdb.NONE, int64(1)}, &kdb.K{-kdb.KJ, kdb.NONE, int64(2)})
+	if err != nil {
+		fmt.Println("sync list call failed", err)
+	}
+	fmt.Println(res)
+
+	// single insert
+	sym := &kdb.K{-kdb.KS, kdb.NONE, "kx"}
+	price := &kdb.K{-kdb.KF, kdb.NONE, float64(100.1)}
+	size := &kdb.K{-kdb.KJ, kdb.NONE, int64(1000)}
+	row := &kdb.K{kdb.K0, kdb.NONE, []*kdb.K{sym, price, size}}
+	// insert row sync
+	insertRes, err := con.Call("insert", &kdb.K{-kdb.KS, kdb.NONE, "t"}, row)
+	if err != nil {
+		fmt.Println("Query failed:", err)
+	        return
+	}
+	fmt.Println(insertRes)
+
+
+	// bulk insert
+	syms := &kdb.K{kdb.KS, kdb.NONE, []string{"kx","msft"}}
+	prices := &kdb.K{kdb.KF, kdb.NONE, []float64{1.1,100.1}}
+	sizes := &kdb.K{kdb.KJ, kdb.NONE, []int64{1000,2000}}
+	tab := &kdb.K{kdb.XT, kdb.NONE, kdb.Table{[]string{"sym","price","size"},[]*kdb.K{syms, prices, sizes}}}
+	// insert tab sync
+	bulkInsertRes, err := con.Call("insert", &kdb.K{-kdb.KS, kdb.NONE, "t"}, tab)
+	if err != nil {
+	        fmt.Println("Query failed:", err)
+                return
+        }
+	fmt.Println(bulkInsertRes)
+	// close connection
+	con.Close()
 }
 
-func printTbl(tbl kdb.Table){
+func PrintTbl(tbl kdb.Table){
 	ncols := len(tbl.Data)
 	nrows := int(tbl.Data[0].Len())
 	// print Columns
@@ -76,7 +118,7 @@ func printTbl(tbl kdb.Table){
 	return
 }
 
-func printKeyTbl(ktbl kdb.Dict){
+func PrintKeyTbl(ktbl kdb.Dict){
 	nkcols := len(ktbl.Key.Data.(kdb.Table).Data)
 	nucols := len(ktbl.Value.Data.(kdb.Table).Data)
 	nrows := int(ktbl.Key.Len())
@@ -109,7 +151,7 @@ func printKeyTbl(ktbl kdb.Dict){
 	return
 }
 
-func printDict(dict kdb.Dict){
+func PrintDict(dict kdb.Dict){
 	for i := 0; i < int(dict.Key.Len()); i++ {
 		fmt.Printf("%s\t| %v\n", dict.Key.Index(i), dict.Value.Index(i))
 	}
